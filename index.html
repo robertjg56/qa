@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Âge des Célébrités</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .search-container {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #celebrity-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 50px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #celebrity-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .autocomplete {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+            text-align: left;
+        }
+
+        .autocomplete-item:hover {
+            background: #f8f9fa;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-loading {
+            padding: 12px 20px;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        .search-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results {
+            padding: 30px;
+            display: none;
+        }
+
+        .api-result {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+
+        .api-result:hover {
+            transform: translateY(-2px);
+        }
+
+        .api-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .wikidata { border-left: 4px solid #ff6b6b; }
+        .wikipedia { border-left: 4px solid #54a0ff; }
+        .tmdb { border-left: 4px solid #feca57; }
+
+        .result-content {
+            line-height: 1.6;
+        }
+
+        .age-highlight {
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .age-alive {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+        }
+
+        .age-deceased {
+            background: linear-gradient(45deg, #6c757d, #495057);
+        }
+
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .celebrity-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .celebrity-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ddd;
+        }
+
+        .celebrity-details h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .celebrity-details p {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎭 Âge des Célébrités</h1>
+            <p>Découvrez l'âge de vos personnalités préférées - 100% fonctionnel</p>
+        </div>
+
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="celebrity-input" placeholder="Tapez le nom d'une personnalité (ex: Einstein, Napoléon, Brigitte Bardot...)..." autocomplete="off">
+                <div class="autocomplete" id="autocomplete"></div>
+            </div>
+            <button class="search-btn" id="search-btn" onclick="searchCelebrity()">
+                🔍 Rechercher
+            </button>
+        </div>
+
+        <div class="results" id="results">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Recherche en cours...</p>
+            </div>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentCelebrity = '';
+        let autocompleteData = [];
+
+        let autocompleteTimeout;
+
+        // Autocomplétion basée sur Wikipedia
+        document.getElementById('celebrity-input').addEventListener('input', function(e) {
+            const value = e.target.value.trim();
+            const autocomplete = document.getElementById('autocomplete');
+            
+            if (value.length < 3) {
+                autocomplete.style.display = 'none';
+                return;
+            }
+
+            // Débounce pour éviter trop de requêtes
+            clearTimeout(autocompleteTimeout);
+            autocompleteTimeout = setTimeout(async () => {
+                try {
+                    await searchWikipediaAutocomplete(value);
+                } catch (error) {
+                    console.error('Erreur autocomplétion:', error);
+                    autocomplete.style.display = 'none';
+                }
+            }, 300);
+        });
+
+        async function searchWikipediaAutocomplete(query) {
+            const autocomplete = document.getElementById('autocomplete');
+            
+            // Recherche OpenSearch Wikipedia (plus rapide pour l'autocomplétion)
+            const searchUrl = `https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=8&namespace=0&format=json&origin=*`;
+            
+            try {
+                const response = await fetch(searchUrl);
+                if (!response.ok) throw new Error('Erreur API Wikipedia');
+                
+                const data = await response.json();
+                const suggestions = data[1]; // Les titres sont dans le 2ème élément
+                const descriptions = data[2]; // Les descriptions dans le 3ème
+                const urls = data[3]; // Les URLs dans le 4ème
+                
+                if (suggestions && suggestions.length > 0) {
+                    autocomplete.innerHTML = suggestions.map((title, index) => {
+                        const description = descriptions[index] || '';
+                        const shortDesc = description.length > 80 ? description.substring(0, 80) + '...' : description;
+                        
+                        return `
+                            <div class="autocomplete-item" onclick="selectCelebrity('${title}')">
+                                <div style="font-weight: bold; margin-bottom: 4px">${title}</div>
+                                ${shortDesc ? `<div style="font-size: 0.85em; color: #666">${shortDesc}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                    autocomplete.style.display = 'block';
+                } else {
+                    autocomplete.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'autocomplétion:', error);
+                autocomplete.style.display = 'none';
+            }
+        }
+
+        // Cacher l'autocomplétion quand on clique ailleurs
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-box')) {
+                document.getElementById('autocomplete').style.display = 'none';
+            }
+        });
+
+        function selectCelebrity(name) {
+            document.getElementById('celebrity-input').value = name;
+            document.getElementById('autocomplete').style.display = 'none';
+            currentCelebrity = name;
+        }
+
+        // Recherche par Enter
+        document.getElementById('celebrity-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCelebrity();
+            }
+        });
+
+        async function searchCelebrity() {
+            const input = document.getElementById('celebrity-input').value.trim();
+            if (!input) {
+                alert('Veuillez entrer le nom d\'une célébrité');
+                return;
+            }
+
+            currentCelebrity = input;
+            
+            // Afficher les résultats et le loading
+            const results = document.getElementById('results');
+            const loading = document.getElementById('loading');
+            const resultsContent = document.getElementById('results-content');
+            
+            results.style.display = 'block';
+            loading.style.display = 'block';
+            resultsContent.innerHTML = '';
+
+            // Désactiver le bouton
+            const btn = document.getElementById('search-btn');
+            btn.disabled = true;
+            btn.textContent = '🔍 Recherche...';
+
+            try {
+                // Rechercher avec les APIs qui fonctionnent vraiment
+                const [wikidataResult, wikipediaResult] = await Promise.allSettled([
+                    searchWikidata(currentCelebrity),
+                    searchWikipedia(currentCelebrity)
+                ]);
+
+                loading.style.display = 'none';
+                
+                // Afficher les résultats
+                let html = '';
+                
+                if (wikidataResult.status === 'fulfilled') {
+                    html += createResultCard('Wikidata', wikidataResult.value, 'wikidata');
+                } else {
+                    html += createErrorCard('Wikidata', wikidataResult.reason);
+                }
+
+                if (wikipediaResult.status === 'fulfilled') {
+                    html += createResultCard('Wikipedia', wikipediaResult.value, 'wikipedia');
+                } else {
+                    html += createErrorCard('Wikipedia', wikipediaResult.reason);
+                }
+
+                resultsContent.innerHTML = html;
+
+            } catch (error) {
+                loading.style.display = 'none';
+                resultsContent.innerHTML = `<div class="error">Erreur générale: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 Rechercher';
+            }
+        }
+
+        async function searchWikidata(name) {
+            const query = `
+                SELECT ?person ?personLabel ?birthDate ?deathDate ?description WHERE {
+                  {
+                    ?person wdt:P31 wd:Q5 .
+                    ?person rdfs:label "${name}"@fr .
+                  } UNION {
+                    ?person wdt:P31 wd:Q5 .
+                    ?person rdfs:label "${name}"@en .
+                  }
+                  OPTIONAL { ?person wdt:P569 ?birthDate . }
+                  OPTIONAL { ?person wdt:P570 ?deathDate . }
+                  OPTIONAL { ?person schema:description ?description . FILTER(LANG(?description) = "fr") }
+                  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en" . }
+                }
+                LIMIT 1
+            `;
+
+            const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Erreur API Wikidata');
+            
+            const data = await response.json();
+            
+            if (data.results.bindings.length === 0) {
+                throw new Error('Aucun résultat trouvé sur Wikidata');
+            }
+
+            const result = data.results.bindings[0];
+            const birthDate = result.birthDate?.value;
+            const deathDate = result.deathDate?.value;
+            const description = result.description?.value || 'Description non disponible';
+            
+            if (!birthDate) {
+                return {
+                    name: result.personLabel.value,
+                    description: description,
+                    age: null,
+                    birthDate: null,
+                    deathDate: null,
+                    message: 'Date de naissance non disponible sur Wikidata'
+                };
+            }
+
+            const birth = new Date(birthDate);
+            let age, message;
+            
+            if (deathDate) {
+                // Personne décédée
+                const death = new Date(deathDate);
+                age = calculateAge(birth, death);
+                message = `${result.personLabel.value} est décédé(e) à l'âge de ${age} ans`;
+            } else {
+                // Personne vivante
+                age = calculateAge(birth);
+                message = `${result.personLabel.value} a actuellement ${age} ans`;
+            }
+            
+            return {
+                name: result.personLabel.value,
+                description: description,
+                age: age,
+                birthDate: birth.toLocaleDateString('fr-FR'),
+                deathDate: deathDate ? new Date(deathDate).toLocaleDateString('fr-FR') : null,
+                message: message
+            };
+        }
+
+        async function searchWikipedia(name) {
+            // Rechercher la page
+            const searchUrl = `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`;
+            
+            const response = await fetch(searchUrl);
+            if (!response.ok) {
+                // Essayer une recherche alternative
+                const altSearchUrl = `https://fr.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=${encodeURIComponent(name)}&origin=*`;
+                const altResponse = await fetch(altSearchUrl);
+                if (!altResponse.ok) throw new Error('Erreur API Wikipedia');
+                
+                const altData = await altResponse.json();
+                if (altData.query.search.length === 0) {
+                    throw new Error('Aucun résultat trouvé sur Wikipedia');
+                }
+                
+                const firstResult = altData.query.search[0];
+                const summaryUrl = `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(firstResult.title)}`;
+                const summaryResponse = await fetch(summaryUrl);
+                if (!summaryResponse.ok) throw new Error('Erreur lors de la récupération des détails');
+                
+                const summaryData = await summaryResponse.json();
+                
+                // Essayer d'extraire l'âge du contenu
+                const ageData = extractAgeFromText(summaryData.extract, summaryData.title);
+                
+                return {
+                    name: summaryData.title,
+                    description: summaryData.extract || 'Description non disponible',
+                    age: ageData.age,
+                    birthDate: ageData.birthDate,
+                    deathDate: ageData.deathDate,
+                    message: ageData.message,
+                    thumbnail: summaryData.thumbnail?.source
+                };
+            }
+            
+            const data = await response.json();
+            
+            // Essayer d'extraire l'âge du contenu
+            const ageData = extractAgeFromText(data.extract, data.title);
+            
+            return {
+                name: data.title,
+                description: data.extract || 'Description non disponible',
+                age: ageData.age,
+                birthDate: ageData.birthDate,
+                deathDate: ageData.deathDate,
+                message: ageData.message,
+                thumbnail: data.thumbnail?.source
+            };
+        }
+
+        function extractAgeFromText(text, name) {
+            if (!text) {
+                return {
+                    age: null,
+                    birthDate: null,
+                    deathDate: null,
+                    message: 'Aucun texte disponible pour extraire les dates'
+                };
+            }
+
+            // Patterns pour extraire les dates de naissance et de décès
+            const birthPatterns = [
+                /né(?:e)?\s+le\s+(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+                /né(?:e)?\s+en\s+(\d{4})/gi,
+                /naissance\s*:\s*(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+                /(\d{1,2})\s+(\w+)\s+(\d{4})\s*-/gi,
+                /\((\d{4})-/gi
+            ];
+
+            const deathPatterns = [
+                /mort(?:e)?\s+le\s+(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+                /décédé(?:e)?\s+le\s+(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+                /décès\s*:\s*(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+                /-\s*(\d{1,2})\s+(\w+)\s+(\d{4})/gi,
+                /-(\d{4})\)/gi
+            ];
+
+            const months = {
+                'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
+                'juillet': 7, 'août': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12
+            };
+
+            let birthDate = null;
+            let deathDate = null;
+
+            // Chercher la date de naissance
+            for (const pattern of birthPatterns.slice(0, -1)) {
+                const match = pattern.exec(text);
+                if (match) {
+                    if (match.length === 4) { // jour, mois, année
+                        const day = parseInt(match[1]);
+                        const monthName = match[2].toLowerCase();
+                        const year = parseInt(match[3]);
+                        const month = months[monthName];
+                        if (month) {
+                            birthDate = new Date(year, month - 1, day);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Si pas trouvé avec jour/mois, chercher juste l'année
+            if (!birthDate) {
+                for (const pattern of [birthPatterns[1], birthPatterns[4]]) {
+                    const match = pattern.exec(text);
+                    if (match) {
+                        const year = parseInt(match[1]);
+                        if (year > 1800 && year < 2010) { // Années raisonnables pour une naissance
+                            birthDate = new Date(year, 0, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Chercher la date de décès
+            for (const pattern of deathPatterns.slice(0, -1)) {
+                const match = pattern.exec(text);
+                if (match) {
+                    if (match.length === 4) { // jour, mois, année
+                        const day = parseInt(match[1]);
+                        const monthName = match[2].toLowerCase();
+                        const year = parseInt(match[3]);
+                        const month = months[monthName];
+                        if (month) {
+                            deathDate = new Date(year, month - 1, day);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Si pas trouvé avec jour/mois, chercher juste l'année de décès
+            if (!deathDate) {
+                const pattern = deathPatterns[4];
+                const match = pattern.exec(text);
+                if (match) {
+                    const year = parseInt(match[1]);
+                    if (year > 1900 && year <= new Date().getFullYear()) {
+                        deathDate = new Date(year, 11, 31); // Fin d'année par défaut
+                    }
+                }
+            }
+
+            // Calculer l'âge
+            if (birthDate) {
+                if (deathDate) {
+                    // Personne décédée
+                    const age = calculateAge(birthDate, deathDate);
+                    return {
+                        age: age,
+                        birthDate: birthDate.toLocaleDateString('fr-FR'),
+                        deathDate: deathDate.toLocaleDateString('fr-FR'),
+                        message: `${name} est décédé(e) à l'âge de ${age} ans`
+                    };
+                } else {
+                    // Personne vivante
+                    const age = calculateAge(birthDate);
+                    return {
+                        age: age,
+                        birthDate: birthDate.toLocaleDateString('fr-FR'),
+                        deathDate: null,
+                        message: `${name} a actuellement ${age} ans`
+                    };
+                }
+            }
+
+            return {
+                age: null,
+                birthDate: null,
+                deathDate: null,
+                message: 'Impossible d\'extraire les dates de naissance du texte Wikipedia'
+            };
+        }
+
+        function calculateAge(birthDate, deathDate = null) {
+            const endDate = deathDate || new Date();
+            const birth = new Date(birthDate);
+            let age = endDate.getFullYear() - birth.getFullYear();
+            const monthDiff = endDate.getMonth() - birth.getMonth();
+            
+            if (monthDiff < 0 || (monthDiff === 0 && endDate.getDate() < birth.getDate())) {
+                age--;
+            }
+            
+            return age;
+        }
+
+        function createResultCard(apiName, result, className) {
+            const isDeceased = result.deathDate !== null && result.deathDate !== undefined;
+            const ageClass = isDeceased ? 'age-deceased' : 'age-alive';
+            const ageIcon = isDeceased ? '⚰️' : '🎂';
+            
+            return `
+                <div class="api-result ${className}">
+                    <h3 class="api-title">${apiName}</h3>
+                    <div class="result-content">
+                        ${result.thumbnail ? `
+                            <div class="celebrity-info">
+                                <img src="${result.thumbnail}" alt="${result.name}" class="celebrity-photo" onerror="this.style.display='none'">
+                                <div class="celebrity-details">
+                                    <h3>${result.name}</h3>
+                                    <p>${result.description}</p>
+                                </div>
+                            </div>
+                        ` : `
+                            <h4>${result.name}</h4>
+                            <p>${result.description}</p>
+                        `}
+                        
+                        ${result.age !== null ? `
+                            <div class="age-highlight ${ageClass}">
+                                ${ageIcon} ${result.age} ans
+                            </div>
+                            <p><strong>Date de naissance:</strong> ${result.birthDate}</p>
+                            ${result.deathDate ? `<p><strong>Date de décès:</strong> ${result.deathDate}</p>` : ''}
+                            <p><em>${result.message}</em></p>
+                        ` : `
+                            <p><em>${result.message}</em></p>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createErrorCard(apiName, error) {
+            return `
+                <div class="api-result">
+                    <h3 class="api-title">${apiName}</h3>
+                    <div class="error">
+                        ❌ ${error}
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
